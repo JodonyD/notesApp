@@ -1,0 +1,348 @@
+<!--Authour: Jodony Dunn-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Notes App</title>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Notes</h1>
+            <p>Organize your thoughts, ideas, and tasks</p>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <form class="note-form" id="noteForm">
+                    <h3>Add New Note</h3>
+                    
+                    <div class="form-group">
+                        <label for="noteTitle">Title</label>
+                        <input type="text" id="noteTitle" placeholder="Enter note title..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="noteContent">Content</label>
+                        <textarea id="noteContent" placeholder="Write your note here..." required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="noteCategory">Category</label>
+                        <select id="noteCategory">
+                            <option value="Personal">Personal</option>
+                            <option value="Work">Work</option>
+                            <option value="Study">Study</option>
+                            <option value="Ideas">Ideas</option>
+                            <option value="Tasks">Tasks</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notePriority">Priority</label>
+                        <select id="notePriority">
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Add Note</button>
+                    <button type="button" class="btn btn-secondary" id="clearForm">Clear</button>
+                </form>
+
+                <div class="search-filter">
+                    <h4>Search & Filter</h4>
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search notes...">
+                    <select class="search-input" id="categoryFilter" title="Category">
+                        <option value="">All Categories</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Work">Work</option>
+                        <option value="Study">Study</option>
+                        <option value="Ideas">Ideas</option>
+                        <option value="Tasks">Tasks</option>
+                    </select>
+                    <select class="search-input" id="priorityFilter" title="Priority">
+                        <option value="">All Priorities</option>
+                        <option value="high">High Priority</option>
+                        <option value="medium">Medium Priority</option>
+                        <option value="low">Low Priority</option>
+                    </select>
+                </div>
+
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="totalNotes">0</div>
+                        <div class="stat-label">Total Notes</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes-area">
+                <div class="notes-grid" id="notesContainer">
+                    <div class="empty-state">
+                        <h3>No notes yet</h3>
+                        <p>Create your first note to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--JAVASCRIPT-->
+    <script>
+        class NotesApp {
+            constructor() {
+                this.notes = this.loadNotes(); //loads exisiting notes from local storage/ starts an empty array
+                this.editingNoteId = null; //tracks which note is currenlty being edited
+                this.initializeEventListeners(); //event listeners for user interaction
+                this.renderNotes();//display exisiting notes on page load
+                this.updateStats();//updates statistic display
+            }
+
+            /*listeners for all interavtive elements
+            submissions, button clicks, filter chnages */
+            initializeEventListeners() {
+                document.getElementById('noteForm').addEventListener('submit', (e) => this.handleSubmit(e));
+                document.getElementById('clearForm').addEventListener('click', () => this.clearForm());
+                document.getElementById('searchInput').addEventListener('input', () => this.filterNotes());
+                document.getElementById('categoryFilter').addEventListener('change', () => this.filterNotes());
+                document.getElementById('priorityFilter').addEventListener('change', () => this.filterNotes());
+            }
+
+            //handles form submission for both adding new notes and updating notes
+            handleSubmit(e) {
+                e.preventDefault(); //prevents default form submission 
+                
+                //gets the form values and trims whitespaces
+                const title = document.getElementById('noteTitle').value.trim();
+                const content = document.getElementById('noteContent').value.trim();
+                const category = document.getElementById('noteCategory').value;
+                const priority = document.getElementById('notePriority').value;
+
+                //validates that required fields and filled out
+                if (!title || !content) return;
+
+                //check if a note is being edited or a new note is being added
+                if (this.editingNoteId) {
+                    this.updateNote(this.editingNoteId, title, content, category, priority);
+                    this.editingNoteId = null;
+                    document.querySelector('.btn-primary').textContent = 'Add Note';
+                } else {
+                    this.addNote(title, content, category, priority);
+                }
+
+                //resets the form and updates display on reload
+                this.clearForm();
+                this.renderNotes();
+                this.updateStats();
+            }
+
+            //add a new note 
+            addNote(title, content, category, priority) { 
+                //creates a new note object with a unique id and time stamps
+                const note = {
+                    id: Date.now().toString(),
+                    title,
+                    content,
+                    category,
+                    priority,
+                    createdAt: new Date().toLocaleDateString(),
+                    updatedAt: new Date().toLocaleDateString()
+                };
+
+                this.notes.unshift(note); //addes the new note to the fron ot the array
+                this.saveNotes(); //save to loacl storage
+            }
+
+            //updates exisiting notes with new info
+            updateNote(id, title, content, category, priority) { 
+                //find the note 
+                const noteIndex = this.notes.findIndex(note => note.id === id);
+
+                if (noteIndex !== -1) {
+                    //update the note while keeping original date
+                    this.notes[noteIndex] = {
+                        ...this.notes[noteIndex],
+                        title,
+                        content,
+                        category,
+                        priority,
+                        updatedAt: new Date().toLocaleDateString()
+                    };
+                    //saves chnages to loacl storage
+                    this.saveNotes();
+                }
+            }
+
+            //delete note after confirmation 
+            deleteNote(id) { 
+                //ask for confirmation beofre deletion
+                if (confirm('Are you sure you want to delete this note?')) { 
+                    //remove note form the array
+                    this.notes = this.notes.filter(note => note.id !== id);
+                    //save changes and update the display
+                    this.saveNotes();
+                    this.renderNotes();
+                    this.updateStats();
+                }
+            }
+
+            //used to edit a note
+            editNote(id) { 
+                //fidn the note wanting to be edited
+                const note = this.notes.find(note => note.id === id);
+
+                if (note) {
+                    //put note data into the form
+                    document.getElementById('noteTitle').value = note.title;
+                    document.getElementById('noteContent').value = note.content;
+                    document.getElementById('noteCategory').value = note.category;
+                    document.getElementById('notePriority').value = note.priority;
+                    
+                    //set editing mode and update button
+                    this.editingNoteId = id;
+                    document.querySelector('.btn-primary').textContent = 'Update Note';
+                    document.getElementById('noteTitle').focus();
+                }
+            }
+
+            //filters and searches notes based on userinput
+            filterNotes() {
+                //get vcurrent filter values
+                const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+                const categoryFilter = document.getElementById('categoryFilter').value;
+                const priorityFilter = document.getElementById('priorityFilter').value;
+
+                //start with all notes 
+                let filteredNotes = this.notes;
+
+                //search both title and content
+                if (searchTerm) {
+                    filteredNotes = filteredNotes.filter(note => 
+                        note.title.toLowerCase().includes(searchTerm) ||
+                        note.content.toLowerCase().includes(searchTerm)
+                    );
+                }
+                //apply to category filter 
+                if (categoryFilter) {
+                    filteredNotes = filteredNotes.filter(note => note.category === categoryFilter);
+                }
+                //apply yo priotity filter
+                if (priorityFilter) {
+                    filteredNotes = filteredNotes.filter(note => note.priority === priorityFilter);
+                }
+                //displays the filtered results 
+                this.renderNotes(filteredNotes);
+            }
+
+            renderNotes(notesToRender = this.notes) {
+                const container = document.getElementById('notesContainer');
+                
+                //show empty notes if no notes to display
+                if (notesToRender.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No notes found</h3>
+                            <p>Try adjusting your search or create a new note!</p>
+                        </div>
+                    `;
+                    return;
+                }
+                //generates HTML form each not and insert it into the container 
+                container.innerHTML = notesToRender.map(note => `
+                    <div class="note-card priority-${note.priority} fade-in">
+                        <div class="note-header">
+                            <h3 class="note-title">${this.escapeHtml(note.title)}</h3>
+                            <div class="note-actions">
+                                <button class="btn btn-secondary" onclick="app.editNote('${note.id}')" style="padding: 6px 12px; font-size: 12px;">Edit</button>
+                                <button class="btn btn-delete" onclick="app.deleteNote('${note.id}')">×</button>
+                            </div>
+                        </div>
+                        <div class="note-content">${this.escapeHtml(note.content).replace(/\n/g, '<br>')}</div>
+                        <div class="note-meta">
+                            <div>
+                                <span class="note-category">${note.category}</span>
+                                <span class="priority-badge priority-${note.priority}">${note.priority} priority</span>
+                            </div>
+                            <div>
+                                <small>Created: ${note.createdAt}</small>
+                                ${note.updatedAt !== note.createdAt ? `<br><small>Updated: ${note.updatedAt}</small>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            //displays with total notes
+            updateStats() {
+                document.getElementById('totalNotes').textContent = this.notes.length;
+            }
+
+            //rest the dorm 
+            clearForm() {
+                //rest all form feilds to default 
+                document.getElementById('noteForm').reset();
+                //reset editing state
+                this.editingNoteId = null;
+                document.querySelector('.btn-primary').textContent = 'Add Note';
+            }
+
+            //saves notes to browser local storage 
+            saveNotes() {
+              try{
+                //converst the notes array to JSON string and save to local storage
+                const notesJSON = JSON.stringify(this.notes);
+
+                if(typeof Storage !== "undefined"){
+                    localStorage.setItem('notesApp_notes',notesJSON);
+                }else{
+                    this.memoryStorage = this.notes;
+                }
+                console.log('Notes saved successfully', this.notes);
+              }catch (error){
+                console.error('Error saving notes', error);
+                this.memoryStorage = this.notes
+              }
+            }
+
+            //Loads notes saved to loacl browser or emptys the array if it doent exit
+
+            loadNotes() {
+                try{
+                    //checks if the local storage is supported 
+                    if (typeof Storage !== "undefined"){
+                        //retrieve notes from local storage
+                        const savedNotes = localStorage.getItem('notesApp_notes');
+                        if(savedNotes){
+                            //parse the JSON string back to the array
+                            return JSON.parse(savedNotes);
+                        }
+                    }else if (this.memoryStorage){
+
+                        return this.memoryStorage;
+                    }
+                    //returns empty array if there ar eno saved notes
+                    return [];
+                }catch(error){
+                    console.error('Error loading noteds',error);
+                    //return empty array if there an error loading
+                    return [];
+                }
+                
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        // Initialize the app
+        const app = new NotesApp();
+    </script>
+</body>
+</html>
