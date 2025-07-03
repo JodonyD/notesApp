@@ -1,6 +1,5 @@
 # Notes App
-
-A simple React-based notes application that stores data in the browser using local storage.
+A dynamic web-based note-taking application app created using HTML,CSS and Javascript. It uses the browser's Local Storage to save notes, allowing your data to persist even after refreshing or closing the page.
 
 ## Features
 - Add and delete notes
